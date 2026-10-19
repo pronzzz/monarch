@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Notification icon: a crown/diamond glyph (white silhouette as required by Android). -->
+<!-- Notification icon: the Monarch crown as a white silhouette. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
+    android:viewportWidth="108"
+    android:viewportHeight="108">
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M3,8 L7.5,12 L12,4 L16.5,12 L21,8 L19,19 L5,19 Z" />
+        android:pathData="M24,70 L24,36 L39,53 L54,27 L69,53 L84,36 L84,70 Z M27,76 L81,76 A3,3 0 0 1 84,79 L84,81 A3,3 0 0 1 81,84 L27,84 A3,3 0 0 1 24,81 L24,79 A3,3 0 0 1 27,76 Z" />
 </vector>

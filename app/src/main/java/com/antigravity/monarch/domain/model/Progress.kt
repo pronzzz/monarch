@@ -22,7 +22,14 @@ data class XpEvent(
     val createdAtEpochMs: Long,
 )
 
-enum class ActivitySource { MANUAL, HEALTH_CONNECT }
+enum class ActivitySource(val displayName: String) {
+    MANUAL("Manual"),
+    HEALTH_CONNECT("Health Connect"),
+    STRAVA("Strava"),
+    ;
+
+    val isSynced: Boolean get() = this != MANUAL
+}
 
 /** A logged workout (manual or synced). */
 data class WorkoutEntry(
@@ -37,7 +44,11 @@ data class WorkoutEntry(
     val externalId: String? = null,
     val notes: String = "",
     val xpAwarded: Int = 0,
-)
+    /** App that recorded a synced session (e.g. "Samsung Health", "Zepp"); null for manual logs. */
+    val originApp: String? = null,
+) {
+    val endEpochMs: Long get() = startedAtEpochMs + durationMinutes * 60_000L
+}
 
 /** A logged habit (meal, water, reading...). Quantity unit depends on [HabitType]. */
 data class HabitEntry(

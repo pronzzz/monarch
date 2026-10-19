@@ -11,6 +11,8 @@ import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
+import com.antigravity.monarch.data.sources.SourceApp
+import com.antigravity.monarch.domain.model.ActivitySource
 import com.antigravity.monarch.domain.model.WorkoutType
 import com.antigravity.monarch.domain.repository.ExternalWorkout
 import com.antigravity.monarch.domain.repository.HealthAvailability
@@ -79,6 +81,8 @@ class HealthConnectDataSource @Inject constructor(
                     title = record.title?.takeIf { it.isNotBlank() } ?: exerciseName(record.exerciseType),
                     startEpochMs = record.startTime.toEpochMilli(),
                     durationMinutes = Duration.between(record.startTime, record.endTime).toMinutes().toInt(),
+                    source = ActivitySource.HEALTH_CONNECT,
+                    originApp = SourceApp.labelFor(record.metadata.dataOrigin.packageName),
                 )
             }
 
@@ -91,6 +95,21 @@ class HealthConnectDataSource @Inject constructor(
             .coerceAtMost(16 * 60)
 
         return HealthDaySnapshot(date, steps, sleepMinutes, sessions, calories)
+    }
+
+    /**
+     * Package names of apps that wrote steps or workouts in the last [days] days, so Settings
+     * can show which sources (Samsung Health, Zepp...) are actually flowing in.
+     */
+    suspend fun recentOrigins(days: Long = 14): Set<String> {
+        val c = client ?: return emptySet()
+        if (!hasRequiredPermissions()) return emptySet()
+        val range = TimeRangeFilter.between(Instant.now().minus(Duration.ofDays(days)), Instant.now())
+        val sessions = c.readRecords(ReadRecordsRequest(ExerciseSessionRecord::class, range, pageSize = 500)).records
+        val steps = c.readRecords(ReadRecordsRequest(StepsRecord::class, range, pageSize = 1000)).records
+        return (sessions.map { it.metadata.dataOrigin.packageName } + steps.map { it.metadata.dataOrigin.packageName })
+            .filter { it != context.packageName }
+            .toSet()
     }
 
     companion object {

@@ -111,8 +111,11 @@ class StatusViewModel @Inject constructor(
             if (silent && outcome !is HealthSyncOutcome.Synced) return@launch
             messages.send(
                 when (outcome) {
-                    is HealthSyncOutcome.Synced -> if (outcome.result.totalXp > 0) "Synced · ${outcome.result.describe()}" else "Synced. Nothing new."
-                    HealthSyncOutcome.MissingPermissions -> "Link Health Connect in Settings to sync."
+                    is HealthSyncOutcome.Synced -> buildString {
+                        append(if (outcome.result.totalXp > 0) "Synced · ${outcome.result.describe()}" else "Synced ${outcome.sources.joinToString(" + ")}. Nothing new.")
+                        if (outcome.warnings.isNotEmpty()) append(" (${outcome.warnings.joinToString("; ")})")
+                    }
+                    HealthSyncOutcome.MissingPermissions -> "Link Health Connect or Strava in Settings to sync."
                     HealthSyncOutcome.Unavailable -> "Health Connect isn't available on this device."
                     HealthSyncOutcome.NoProfile -> "Finish onboarding first."
                     is HealthSyncOutcome.Failed -> "Sync failed: ${outcome.message}"

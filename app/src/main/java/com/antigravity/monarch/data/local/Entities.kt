@@ -63,6 +63,7 @@ data class WorkoutEntity(
     val externalId: String?,
     val notes: String,
     val xpAwarded: Int,
+    val originApp: String? = null,
 )
 
 @Entity(tableName = "habit", indices = [Index("epochDay")])

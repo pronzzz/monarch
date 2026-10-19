@@ -4,6 +4,8 @@ import android.Manifest
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -45,6 +47,9 @@ import com.antigravity.monarch.data.auth.SignInResult
 import com.antigravity.monarch.data.calendar.DeviceCalendarSync
 import com.antigravity.monarch.data.health.HealthConnectDataSource
 import com.antigravity.monarch.data.local.DataResetter
+import com.antigravity.monarch.data.sources.SourceState
+import com.antigravity.monarch.data.sources.SourceStatusReader
+import com.antigravity.monarch.data.strava.StravaClient
 import com.antigravity.monarch.domain.model.Intensity
 import com.antigravity.monarch.domain.model.PlayerProfile
 import com.antigravity.monarch.domain.repository.AppSettings
@@ -81,6 +86,7 @@ data class LinkState(
     val healthLinked: Boolean = false,
     val calendarPermission: Boolean = false,
     val notificationsAllowed: Boolean = true,
+    val sources: List<SourceState> = emptyList(),
 )
 
 @HiltViewModel
@@ -94,6 +100,8 @@ class SettingsViewModel @Inject constructor(
     private val notifier: QuestNotifier,
     private val resetter: DataResetter,
     private val statusListener: StatusListener,
+    val strava: StravaClient,
+    val sourceReader: SourceStatusReader,
     val auth: GoogleAuthManager,
     llm: LlmClient,
 ) : ViewModel() {
@@ -111,7 +119,22 @@ class SettingsViewModel @Inject constructor(
             healthLinked = runCatching { health.hasRequiredPermissions() }.getOrDefault(false),
             calendarPermission = calendar.hasPermission(),
             notificationsAllowed = notifier.canNotify(),
+            sources = sourceReader.read(),
         )
+        strava.refreshStatus()
+    }
+
+    fun connectStrava(context: Context) = viewModelScope.launch {
+        try {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(strava.authorizationUrl())).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (e: Exception) {
+            messages.send("Couldn't open Strava: ${e.message}")
+        }
+    }
+
+    fun disconnectStrava() = viewModelScope.launch {
+        strava.disconnect()
+        messages.send("Strava disconnected. Workouts already synced keep their XP.")
     }
 
     fun setWidgetMode(mode: WidgetMode) = viewModelScope.launch {
@@ -179,6 +202,7 @@ fun SettingsScreen(padding: PaddingValues, snackbar: SnackbarHostState, onReset:
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val links by viewModel.links.collectAsStateWithLifecycle()
     val resetDone by viewModel.resetDone.collectAsStateWithLifecycle()
+    val stravaStatus by viewModel.strava.status.collectAsStateWithLifecycle()
     MessageEffect(viewModel.messageFlow, snackbar)
     LifecycleResumeEffect(Unit) {
         viewModel.refreshLinks()
@@ -232,22 +256,15 @@ fun SettingsScreen(padding: PaddingValues, snackbar: SnackbarHostState, onReset:
             }
         }
         item {
-            SystemPanel(title = "Health Connect") {
-                KeyValue("Status", when {
-                    links.healthLinked -> "Linked"
-                    links.health == HealthAvailability.AVAILABLE -> "Not linked"
-                    links.health == HealthAvailability.NEEDS_UPDATE -> "Update required"
-                    else -> "Unavailable"
-                }, valueColor = if (links.healthLinked) MonarchColors.Success else MonarchColors.TextDim)
-                if (links.health == HealthAvailability.AVAILABLE) {
-                    Spacer(Modifier.height(8.dp))
-                    SecondaryButton(
-                        if (links.healthLinked) "Review permissions" else "Link Health Connect",
-                        { healthLauncher.launch(HealthConnectDataSource.READ_PERMISSIONS + HealthConnectDataSource.BACKGROUND_PERMISSION) },
-                        Modifier.fillMaxWidth(),
-                    )
-                }
-            }
+            SyncSourcesPanel(
+                links = links,
+                strava = stravaStatus,
+                onLinkHealth = { healthLauncher.launch(HealthConnectDataSource.READ_PERMISSIONS + HealthConnectDataSource.BACKGROUND_PERMISSION) },
+                onOpenHealthSettings = { runCatching { context.startActivity(viewModel.sourceReader.healthConnectSettingsIntent()) } },
+                onOpenApp = { app -> runCatching { context.startActivity(viewModel.sourceReader.openIntent(app)) } },
+                onConnectStrava = { viewModel.connectStrava(context) },
+                onDisconnectStrava = viewModel::disconnectStrava,
+            )
         }
         item {
             SystemPanel(title = "Calendar") {

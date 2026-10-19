@@ -30,16 +30,16 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 
 /** Monday. */
-private val TODAY: LocalDate = LocalDate.of(2026, 10, 19)
+internal val TODAY: LocalDate = LocalDate.of(2026, 10, 19)
 
-private fun testProfile(playerClass: PlayerClass? = null) = PlayerProfile(
+internal fun testProfile(playerClass: PlayerClass? = null) = PlayerProfile(
     name = "Sung", age = 24, gender = Gender.MALE, heightCm = 180, weightKg = 78.0, targetWeightKg = 75.0,
     goal = FitnessGoal.MUSCLE_GAIN, intensity = Intensity.MODERATE,
     workoutDays = setOf(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY),
     playerClass = playerClass, createdOn = TODAY,
 )
 
-private class World(profile: PlayerProfile? = testProfile(), settings: AppSettings = AppSettings()) {
+internal class World(profile: PlayerProfile? = testProfile(), settings: AppSettings = AppSettings()) {
     val time = FakeTime(TODAY)
     val profiles = FakeProfiles(profile)
     val ledger = FakeLedger()
@@ -52,7 +52,8 @@ private class World(profile: PlayerProfile? = testProfile(), settings: AppSettin
     val calendar = FakeCalendar()
     val generator = RecordingGenerator()
     val progression = ProgressionService(profiles, ledger, activities, achievements, plans, this.settings, DirectTransactions, time, listener)
-    val healthSync = HealthSyncService(health, progression, profiles, this.settings, time)
+    val feed = FakeFeed(connected = false)
+    val healthSync = HealthSyncService(health, setOf(feed), progression, profiles, this.settings, time)
     val planService = PlanService(profiles, plans, activities, this.settings, generator, calendar, time)
 
     suspend fun statXpToday() = ledger.statXpForDay(time.today)

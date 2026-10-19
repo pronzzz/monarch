@@ -10,7 +10,7 @@ enum class AchievementDef(
     val xpReward: Int,
 ) {
     FIRST_WORKOUT("Awakening", "Complete your first workout", AchievementCategory.FIRSTS, 50),
-    FIRST_SYNC("Linked", "Sync with Health Connect for the first time", AchievementCategory.FIRSTS, 25),
+    FIRST_SYNC("Linked", "Sync a health source for the first time", AchievementCategory.FIRSTS, 25),
     STREAK_3("Consistent", "Reach a 3-day streak", AchievementCategory.STREAK, 30),
     STREAK_7("Dedicated", "Reach a 7-day streak", AchievementCategory.STREAK, 100),
     STREAK_30("Unbreakable", "Reach a 30-day streak", AchievementCategory.STREAK, 300),

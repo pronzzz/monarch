@@ -7,9 +7,9 @@ import com.antigravity.monarch.domain.engine.QuestEngine
 import com.antigravity.monarch.domain.engine.StatScaling
 import com.antigravity.monarch.domain.engine.StreakCalculator
 import com.antigravity.monarch.domain.engine.XpAllocator
+import com.antigravity.monarch.domain.engine.WorkoutDeduplicator
 import com.antigravity.monarch.domain.engine.XpRules
 import com.antigravity.monarch.domain.model.AchievementSnapshot
-import com.antigravity.monarch.domain.model.ActivitySource
 import com.antigravity.monarch.domain.model.AwardResult
 import com.antigravity.monarch.domain.model.DailyHealthMetrics
 import com.antigravity.monarch.domain.model.HabitEntry
@@ -152,7 +152,7 @@ class ProgressionService @Inject constructor(
      */
     suspend fun deleteWorkout(id: Long): Boolean = tx.run {
         val entry = activities.workoutById(id) ?: return@run false
-        if (entry.source == ActivitySource.HEALTH_CONNECT) return@run false
+        if (entry.source.isSynced) return@run false
         ledger.deleteEvents("workout:$id")
         activities.deleteWorkout(id)
         true
@@ -166,23 +166,27 @@ class ProgressionService @Inject constructor(
     }.also { if (it) listener.onStatusChanged() }
 
     /**
-     * Apply one day of Health Connect data. Idempotent: steps and sleep replace their earlier
-     * award for that day, workout sessions are de-duplicated by their Health Connect id.
+     * Apply one day of synced data. Idempotent: steps and sleep replace their earlier award for
+     * that day; workouts are de-duplicated by source id and by time overlap across sources.
      */
     suspend fun applyHealthDay(snapshot: HealthDaySnapshot): AwardResult = mutate(snapshot.date) { profile ->
         val date = snapshot.date
-        activities.upsertHealthMetrics(DailyHealthMetrics(date, snapshot.steps, snapshot.sleepMinutes, snapshot.activeCalories))
-        var result = award("steps:$date", XpRules.stepsXp(snapshot.steps), date, "Steps", profile, replace = true)
-        result += award("sleep:$date", XpRules.sleepXp(snapshot.sleepMinutes), date, "Sleep", profile, replace = true)
-        for (w in snapshot.workouts) {
-            if (activities.workoutByExternalId(w.externalId) != null) continue
-            val id = activities.insertWorkout(
-                WorkoutEntry(
-                    type = w.type, title = w.title.take(60), durationMinutes = w.durationMinutes.coerceIn(0, XpRules.MAX_SESSION_MINUTES),
-                    intensity = Intensity.MODERATE, date = date, startedAtEpochMs = w.startEpochMs,
-                    source = ActivitySource.HEALTH_CONNECT, externalId = w.externalId,
-                ),
+        var result = AwardResult()
+        if (snapshot.metricsAvailable) {
+            activities.upsertHealthMetrics(DailyHealthMetrics(date, snapshot.steps, snapshot.sleepMinutes, snapshot.activeCalories))
+            result += award("steps:$date", XpRules.stepsXp(snapshot.steps), date, "Steps", profile, replace = true)
+            result += award("sleep:$date", XpRules.sleepXp(snapshot.sleepMinutes), date, "Sleep", profile, replace = true)
+        }
+        val existing = activities.workoutsOn(date).toMutableList()
+        for (w in WorkoutDeduplicator.dedupeBatch(snapshot.workouts)) {
+            if (activities.workoutByExternalId(w.externalId) != null || WorkoutDeduplicator.isDuplicate(w, existing)) continue
+            val entry = WorkoutEntry(
+                type = w.type, title = w.title.take(60), durationMinutes = w.durationMinutes.coerceIn(0, XpRules.MAX_SESSION_MINUTES),
+                intensity = Intensity.MODERATE, date = date, startedAtEpochMs = w.startEpochMs,
+                source = w.source, externalId = w.externalId, originApp = w.originApp,
             )
+            val id = activities.insertWorkout(entry)
+            existing += entry.copy(id = id)
             val r = award("workout:$id", XpRules.workoutXp(w.type, w.durationMinutes, Intensity.MODERATE), date, w.title, profile)
             activities.setWorkoutXp(id, r.statXp)
             result += r

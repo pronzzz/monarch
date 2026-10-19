@@ -1,6 +1,7 @@
 package com.antigravity.monarch.domain.repository
 
 import com.antigravity.monarch.domain.model.AchievementDef
+import com.antigravity.monarch.domain.model.ActivitySource
 import com.antigravity.monarch.domain.model.DailyHealthMetrics
 import com.antigravity.monarch.domain.model.DayTotals
 import com.antigravity.monarch.domain.model.GeneratedPlan
@@ -47,6 +48,7 @@ interface ActivityRepository {
     suspend fun setWorkoutXp(id: Long, xp: Int)
     suspend fun workoutById(id: Long): WorkoutEntry?
     suspend fun workoutByExternalId(externalId: String): WorkoutEntry?
+    suspend fun workoutsOn(date: LocalDate): List<WorkoutEntry>
     suspend fun deleteWorkout(id: Long)
     suspend fun insertHabit(entry: HabitEntry): Long
     suspend fun setHabitXp(id: Long, xp: Int)
@@ -110,18 +112,34 @@ interface TransactionRunner {
 interface TimeProvider {
     fun today(): LocalDate
     fun nowEpochMs(): Long
+    fun zone(): java.time.ZoneId = java.time.ZoneId.systemDefault()
 }
 
 enum class HealthAvailability { AVAILABLE, NEEDS_UPDATE, UNAVAILABLE }
 
-/** A workout session recorded by another app and read through Health Connect. */
+/** A workout recorded elsewhere: read through Health Connect or pulled from an API such as Strava. */
 data class ExternalWorkout(
     val externalId: String,
     val type: WorkoutType,
     val title: String,
     val startEpochMs: Long,
     val durationMinutes: Int,
-)
+    val source: ActivitySource = ActivitySource.HEALTH_CONNECT,
+    /** Human-readable recording app, e.g. "Samsung Health". */
+    val originApp: String? = null,
+) {
+    val endEpochMs: Long get() = startEpochMs + durationMinutes * 60_000L
+}
+
+/**
+ * A workout source reached through its own API rather than Health Connect (e.g. Strava).
+ * Connection/auth is owned by the implementation; the sync service only pulls from it.
+ */
+interface WorkoutFeed {
+    val source: ActivitySource
+    suspend fun isConnected(): Boolean
+    suspend fun workoutsBetween(from: java.time.Instant, to: java.time.Instant): List<ExternalWorkout>
+}
 
 data class HealthDaySnapshot(
     val date: LocalDate,
@@ -129,6 +147,8 @@ data class HealthDaySnapshot(
     val sleepMinutes: Int,
     val workouts: List<ExternalWorkout>,
     val activeCalories: Int = 0,
+    /** False when only API feeds were read: steps/sleep are unknown and must not overwrite earlier data. */
+    val metricsAvailable: Boolean = true,
 )
 
 interface HealthDataSource {

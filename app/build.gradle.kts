@@ -25,19 +25,36 @@ android {
         applicationId = "com.antigravity.monarch"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 100
+        versionName = "1.0.0"
 
         buildConfigField("String", "GEMINI_API_KEY", "\"${secret("GEMINI_API_KEY")}\"")
         buildConfigField("String", "GEMINI_MODEL", "\"${secret("GEMINI_MODEL")}\"")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${secret("GOOGLE_WEB_CLIENT_ID")}\"")
+        buildConfigField("String", "STRAVA_CLIENT_ID", "\"${secret("STRAVA_CLIENT_ID")}\"")
+        buildConfigField("String", "STRAVA_CLIENT_SECRET", "\"${secret("STRAVA_CLIENT_SECRET")}\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        // Release signing comes from local.properties; without it the release APK is unsigned.
+        val keystore = secret("MONARCH_KEYSTORE")
+        if (keystore.isNotBlank() && file(keystore).exists()) {
+            create("release") {
+                storeFile = file(keystore)
+                storePassword = secret("MONARCH_KEYSTORE_PASSWORD")
+                keyAlias = secret("MONARCH_KEY_ALIAS")
+                keyPassword = secret("MONARCH_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            signingConfig = signingConfigs.findByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -59,6 +76,10 @@ android {
     }
     testOptions {
         unitTests.isReturnDefaultValues = true
+    }
+    sourceSets {
+        // Exported Room schemas let MigrationTestHelper verify upgrades on device.
+        getByName("androidTest").assets.directories.add("$projectDir/schemas")
     }
 }
 
@@ -115,5 +136,6 @@ dependencies {
     androidTestImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.work.testing)
     androidTestImplementation(libs.androidx.test.rules)
+    androidTestImplementation(libs.androidx.room.testing)
     androidTestImplementation(libs.androidx.test.espresso.core)
 }

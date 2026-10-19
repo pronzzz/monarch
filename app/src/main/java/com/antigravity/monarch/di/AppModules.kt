@@ -44,6 +44,14 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.IntoSet
+import com.antigravity.monarch.data.net.Http
+import com.antigravity.monarch.data.net.UrlConnectionHttp
+import com.antigravity.monarch.data.strava.EncryptedStravaTokenStore
+import com.antigravity.monarch.data.strava.StravaClient
+import com.antigravity.monarch.data.strava.StravaConfig
+import com.antigravity.monarch.data.strava.StravaTokenStore
+import com.antigravity.monarch.domain.repository.WorkoutFeed
 import kotlinx.serialization.json.Json
 import java.time.LocalDate
 import javax.inject.Singleton
@@ -55,7 +63,9 @@ object DataModule {
     @Provides
     @Singleton
     fun database(@ApplicationContext context: Context): MonarchDatabase =
-        Room.databaseBuilder(context, MonarchDatabase::class.java, MonarchDatabase.NAME).build()
+        Room.databaseBuilder(context, MonarchDatabase::class.java, MonarchDatabase.NAME)
+            .addMigrations(*MonarchDatabase.MIGRATIONS)
+            .build()
 
     @Provides fun profileDao(db: MonarchDatabase): ProfileDao = db.profileDao()
     @Provides fun xpEventDao(db: MonarchDatabase): XpEventDao = db.xpEventDao()
@@ -78,6 +88,9 @@ object DataModule {
 
     @Provides
     fun time(): TimeProvider = SystemTimeProvider
+
+    @Provides
+    fun stravaConfig(): StravaConfig = StravaConfig.fromBuildConfig()
 }
 
 object SystemTimeProvider : TimeProvider {
@@ -100,4 +113,9 @@ abstract class BindingsModule {
     @Binds abstract fun llm(impl: GeminiClient): LlmClient
     @Binds abstract fun planGenerator(impl: SelectingPlanGenerator): PlanGenerator
     @Binds abstract fun statusListener(impl: WidgetStatusListener): StatusListener
+    @Binds abstract fun http(impl: UrlConnectionHttp): Http
+    @Binds abstract fun stravaTokens(impl: EncryptedStravaTokenStore): StravaTokenStore
+
+    /** API-based workout sources merged into every sync. */
+    @Binds @IntoSet abstract fun stravaFeed(impl: StravaClient): WorkoutFeed
 }

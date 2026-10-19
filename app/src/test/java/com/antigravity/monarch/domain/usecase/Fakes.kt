@@ -90,6 +90,7 @@ class FakeActivities : ActivityRepository {
     override suspend fun setWorkoutXp(id: Long, xp: Int) { replaceWorkout(id) { it.copy(xpAwarded = xp) } }
     override suspend fun workoutById(id: Long) = workouts.firstOrNull { it.id == id }
     override suspend fun workoutByExternalId(externalId: String) = workouts.firstOrNull { it.externalId == externalId }
+    override suspend fun workoutsOn(date: LocalDate) = workouts.filter { it.date == date }
     override suspend fun deleteWorkout(id: Long) { workouts.removeAll { it.id == id } }
     override suspend fun insertHabit(entry: HabitEntry): Long = (nextId++).also { habits += entry.copy(id = it) }
     override suspend fun setHabitXp(id: Long, xp: Int) {
@@ -174,6 +175,19 @@ class FakeHealth(
     override suspend fun readDay(date: LocalDate): HealthDaySnapshot {
         reads += date
         return days[date] ?: HealthDaySnapshot(date, 0, 0, emptyList())
+    }
+}
+
+class FakeFeed(
+    override val source: com.antigravity.monarch.domain.model.ActivitySource = com.antigravity.monarch.domain.model.ActivitySource.STRAVA,
+    var connected: Boolean = true,
+    var workouts: List<com.antigravity.monarch.domain.repository.ExternalWorkout> = emptyList(),
+    var failure: Exception? = null,
+) : com.antigravity.monarch.domain.repository.WorkoutFeed {
+    override suspend fun isConnected() = connected
+    override suspend fun workoutsBetween(from: java.time.Instant, to: java.time.Instant): List<com.antigravity.monarch.domain.repository.ExternalWorkout> {
+        failure?.let { throw it }
+        return workouts.filter { it.startEpochMs in from.toEpochMilli()..to.toEpochMilli() }
     }
 }
 

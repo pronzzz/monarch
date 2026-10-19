@@ -2,6 +2,8 @@ package com.antigravity.monarch.data.local
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [
@@ -14,7 +16,7 @@ import androidx.room.RoomDatabase
         PlanEntity::class,
         CalendarEventEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 abstract class MonarchDatabase : RoomDatabase() {
@@ -27,5 +29,14 @@ abstract class MonarchDatabase : RoomDatabase() {
 
     companion object {
         const val NAME = "monarch.db"
+
+        /** v2: synced workouts remember which app recorded them (Samsung Health, Zepp, Strava...). */
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE workout ADD COLUMN originApp TEXT")
+            }
+        }
+
+        val MIGRATIONS = arrayOf(MIGRATION_1_2)
     }
 }

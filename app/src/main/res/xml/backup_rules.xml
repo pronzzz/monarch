@@ -2,4 +2,6 @@
 <full-backup-content>
     <include domain="sharedpref" path="."/>
     <include domain="database" path="."/>
+    <!-- OAuth tokens are Keystore-encrypted and device-bound; never back them up. -->
+    <exclude domain="sharedpref" path="strava_auth.xml"/>
 </full-backup-content>

@@ -30,7 +30,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.antigravity.monarch.domain.engine.XpAllocator
 import com.antigravity.monarch.domain.engine.XpRules
-import com.antigravity.monarch.domain.model.ActivitySource
 import com.antigravity.monarch.domain.model.AwardResult
 import com.antigravity.monarch.domain.model.HabitEntry
 import com.antigravity.monarch.domain.model.HabitType
@@ -220,13 +219,14 @@ fun LogScreen(padding: PaddingValues, snackbar: SnackbarHostState, viewModel: Lo
                     Column(Modifier.weight(1f)) {
                         Text(w.title, style = MaterialTheme.typography.titleMedium, color = MonarchColors.Text)
                         Text(
-                            "${w.date} · ${w.durationMinutes} min · ${w.intensity.displayName}" + if (w.source == ActivitySource.HEALTH_CONNECT) " · Health Connect" else "",
+                            "${w.date} · ${w.durationMinutes} min · ${w.intensity.displayName}" +
+                                if (w.source.isSynced) " · ${w.originApp ?: w.source.displayName}" else "",
                             style = MaterialTheme.typography.bodySmall,
                             color = MonarchColors.TextDim,
                         )
                     }
                     Text("+${w.xpAwarded} XP", style = MaterialTheme.typography.labelMedium, color = MonarchColors.Success)
-                    if (w.source == ActivitySource.MANUAL) {
+                    if (!w.source.isSynced) {
                         TextButton(onClick = { viewModel.deleteWorkout(w.id) }) { Text("Undo", color = MonarchColors.TextDim) }
                     }
                 }

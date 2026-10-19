@@ -151,6 +151,7 @@ class RoomActivityRepository @Inject constructor(private val dao: ActivityDao) :
     override suspend fun setWorkoutXp(id: Long, xp: Int) = dao.setWorkoutXp(id, xp)
     override suspend fun workoutById(id: Long): WorkoutEntry? = dao.workout(id)?.toDomain()
     override suspend fun workoutByExternalId(externalId: String): WorkoutEntry? = dao.workoutByExternalId(externalId)?.toDomain()
+    override suspend fun workoutsOn(date: LocalDate): List<WorkoutEntry> = dao.workoutsOn(date.toEpochDay()).map { it.toDomain() }
     override suspend fun deleteWorkout(id: Long) = dao.deleteWorkout(id)
     override suspend fun insertHabit(entry: HabitEntry): Long = dao.insertHabit(entry.toEntity())
     override suspend fun setHabitXp(id: Long, xp: Int) = dao.setHabitXp(id, xp)
@@ -208,13 +209,14 @@ class RoomActivityRepository @Inject constructor(private val dao: ActivityDao) :
 internal fun WorkoutEntry.toEntity() = WorkoutEntity(
     id = id, type = type.name, title = title, durationMinutes = durationMinutes, intensity = intensity.name,
     epochDay = date.toEpochDay(), startedAt = startedAtEpochMs, source = source.name, externalId = externalId,
-    notes = notes, xpAwarded = xpAwarded,
+    notes = notes, xpAwarded = xpAwarded, originApp = originApp,
 )
 
 internal fun WorkoutEntity.toDomain() = WorkoutEntry(
     id = id, type = enumOr(type, WorkoutType.OTHER), title = title, durationMinutes = durationMinutes,
     intensity = enumOr(intensity, Intensity.MODERATE), date = LocalDate.ofEpochDay(epochDay), startedAtEpochMs = startedAt,
     source = enumOr(source, ActivitySource.MANUAL), externalId = externalId, notes = notes, xpAwarded = xpAwarded,
+    originApp = originApp,
 )
 
 internal fun HabitEntry.toEntity() = HabitEntity(id, type.name, quantity, date.toEpochDay(), loggedAtEpochMs, xpAwarded)
