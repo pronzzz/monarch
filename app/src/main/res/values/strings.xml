@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Monarch</string>
+    <string name="widget_description">Your status window: level, class, XP and top stats.</string>
+</resources>

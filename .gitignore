@@ -1,0 +1,14 @@
+# Build output
+.gradle/
+.kotlin/
+build/
+app/build/
+
+# Local machine / secrets (API keys live in local.properties)
+local.properties
+.idea/
+.vscode/
+
+# Large local artifacts: JVM heap dumps and the pre-rebuild source backup
+*.hprof
+*.tar.gz
